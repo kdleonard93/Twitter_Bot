@@ -10,49 +10,47 @@ API_KEY = environ.get("API_KEY")
 API_SECRET_KEY = environ.get("API_SECRET_KEY")
 ACCESS_TOKEN = environ.get("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = environ.get("ACCESS_TOKEN_SECRET")
+BEARER_TOKEN = environ.get("BEARER_TOKEN")
 CLIENT_ID = environ.get("CLIENT_ID")
 CLIENT_SECRET = environ.get("CLIENT_SECRET")
 
-def post_tweet(api, message: str):
+def post_tweet(client, message: str):
+    """Post a tweet using the provided client and message."""
     try:
-        tweet = api.update_status(message)
-        print(f"Successfully posted tweet with ID: {tweet.id}")
-    except tweepy.HTTPError as e:
-        print(f"Error Code: {e.api_code}")
-        print(f"Reason: {e.reason}")
+        response = client.create_tweet(text=message, user_auth=True)
+        print(f"Successfully posted tweet with ID: {response.data.id}")
+    except Exception as e:
+        print(f"Error occurred: {e}")
         print(traceback.format_exc())
 
-
 def main():
+    """Main function to execute the script."""
     # Check if all keys are loaded correctly
-    if not all([API_KEY, API_SECRET_KEY, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
+    if not all([API_KEY, API_SECRET_KEY, ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BEARER_TOKEN]):
         print("One or more environment variables are missing.")
         exit()
 
- 
-    auth = tweepy.OAuthHandler(API_KEY, API_SECRET_KEY,ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+    oauth2_user_handler = tweepy.OAuth2UserHandler(
+        client_id = API_KEY, 
+        redirect_uri = "https://twitter.com/botanybound",
+        scope = ["read", "write"],  
+        client_secret = API_SECRET_KEY  
+    )
 
-    # Instantiate the API object
-    api = tweepy.API(auth)
+    # Generate the authorization URL to redirect the user
+    auth_url = oauth2_user_handler.get_authorization_url()
+    print(f"Please go to this URL and authorize the app: {auth_url}")
 
-    post_tweet(api, "Using Tweepy with Twitter API v2 using OAuth 1.0a User Context for the first time!")
-    
-    # Fetch and print the last 5 tweets from the home timeline
-    try:
-        tweets = api.home_timeline(count=5)
-        for tweet in tweets:
-            print(tweet.text)
-    except tweepy.HTTPError as e:
-        print(f"Error Code: {e.api_code}")
-        print(f"Reason: {e.reason}")
-    
-    # Attempt to post a test tweet and print any error details
-    try:
-        api.update_status("Test tweet")
-    except tweepy.HTTPError as e:
-        print(f"Error Code: {e.api_code}")
-        print(f"Reason: {e.reason}")
+    # Get the code from the callback URL after the user authorizes the app
+    code = input("Enter the code from the callback URL: ")
 
+    # Fetch the user's access token using the provided code
+    oauth2_user_handler.fetch_access_token(code)
+
+    # Set up the client using the user's access token
+    client = tweepy.Client(oauth2_user_handler=oauth2_user_handler)
+
+    post_tweet(client, "Using Tweepy with Twitter API v2 with OAuth2 for the first time!")
 
 if __name__ == "__main__":
     main()
